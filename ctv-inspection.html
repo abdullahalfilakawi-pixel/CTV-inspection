@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>CTV-Inspection | فحص سيارات الكيبل مع العلامات التوضيحية</title>
+    <!-- Tailwind + FontAwesome + Fabric.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <style>
+        * { font-family: 'Tajawal', sans-serif; }
+        body { background: #eef2f7; direction: rtl; }
+        input, textarea, select { text-align: right; }
+        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.02); }
+        @media print {
+            body { background: white; padding: 0; margin: 0; }
+            .no-print { display: none !important; }
+            .print-area { box-shadow: none; padding: 0.5cm; }
+            .canvas-annot { break-inside: avoid; }
+            button, .action-bar, .image-toolbar, .pin-toolbar { display: none; }
+        }
+        .field-label { font-weight: 700; font-size: 0.85rem; color: #1e3a5f; }
+        .canvas-annot-container { background: #f8fafc; border-radius: 1rem; border: 2px solid #e2e8f0; transition: 0.2s; }
+        .pin-btn-active { background-color: #f59e0b !important; color: white !important; }
+        .vehicle-preset-card { cursor: pointer; transition: 0.2s; border: 2px solid transparent; }
+        .vehicle-preset-card:hover { border-color: #f59e0b; background: #fffbeb; }
+        .preset-selected { background: #fef3c7; border-color: #f59e0b; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+
+<div class="max-w-7xl mx-auto">
+    <!-- رأس التطبيق مع اسم CTV-Inspection -->
+    <div class="no-print flex flex-wrap justify-between items-center mb-5 gap-3 border-b border-amber-200 pb-3">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-video text-3xl text-amber-600"></i>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-slate-800">CTV-Inspection <span class="text-sm font-normal text-gray-500">| فحص متقدم مع علامات مباشرة على صور المركبات</span></h1>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <button id="saveLocalBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl shadow text-sm font-bold transition"><i class="fas fa-save ml-1"></i> حفظ الفحص</button>
+            <button id="shareBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow text-sm font-bold transition"><i class="fas fa-share-alt ml-1"></i> مشاركة التقرير</button>
+            <button id="printBtn" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-xl shadow text-sm font-bold transition"><i class="fas fa-print ml-1"></i> طباعة</button>
+            <button id="resetBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl shadow text-sm font-bold transition"><i class="fas fa-undo-alt ml-1"></i> إعادة تعيين</button>
+        </div>
+    </div>
+
+    <div class="print-area bg-white rounded-2xl card-shadow overflow-hidden border border-gray-200">
+        <div class="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 text-center">
+            <h2 class="text-2xl font-bold">نموذج فحص دخول و خروج سيارات فحص الكيبل</h2>
+            <p class="text-amber-200 text-sm mt-1">إدارة طوارئ شبكات التوزيع الكهربائية | CTV-Inspection: توثيق بالصور والعلامات</p>
+        </div>
+
+        <div class="p-5 md:p-6 space-y-6">
+            <!-- المعلومات الأساسية -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label class="field-label"><i class="fas fa-sort-numeric-down"></i> التسلسل</label><input type="text" id="carSequence" class="w-full border rounded-xl px-3 py-2 bg-yellow-50"></div>
+                <div><label class="field-label"><i class="fas fa-car"></i> رقم اللوحة</label><input type="text" id="plateNumber" class="w-full border rounded-xl px-3 py-2 bg-yellow-50"></div>
+                <div><label class="field-label"><i class="fas fa-calendar-alt"></i> التاريخ</label><input type="text" id="dateValue" class="w-full border rounded-xl px-3 py-2 bg-yellow-50"></div>
+                <div><label class="field-label"><i class="fas fa-building"></i> القسم</label><input type="text" id="department" class="w-full border rounded-xl px-3 py-2"></div>
+                <div><label class="field-label"><i class="fas fa-phone"></i> هاتف القسم</label><input type="text" id="deptPhone" class="w-full border rounded-xl px-3 py-2"></div>
+                <div><label class="field-label"><i class="fas fa-user-check"></i> المدقق / الموقع</label><input type="text" id="inspector" class="w-full border rounded-xl px-3 py-2"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="border border-amber-200 rounded-xl p-4 bg-amber-50/30"><h3 class="font-bold text-blue-800 border-r-4 border-amber-500 pr-2 mb-2"><i class="fas fa-sign-out-alt"></i> خروج السيارة</h3><div class="space-y-2"><input type="text" id="destination" placeholder="الجهة المقصودة" class="w-full border p-2 rounded"><input type="text" id="exitTime" placeholder="وقت الخروج" class="w-full border p-2 rounded"><input type="text" id="driverName" placeholder="اسم السائق" class="w-full border p-2 rounded"><input type="text" id="driverCivilId" placeholder="رقم المدني" class="w-full border p-2 rounded"><input type="text" id="startMeter" placeholder="قراءة العداد عند المغادرة" class="w-full border p-2 rounded"></div></div>
+                <div class="border border-green-200 rounded-xl p-4 bg-green-50/30"><h3 class="font-bold text-blue-800 border-r-4 border-green-500 pr-2 mb-2"><i class="fas fa-sign-in-alt"></i> عودة السيارة</h3><div class="space-y-2"><input type="text" id="receiverName" placeholder="مستلم السيارة" class="w-full border p-2 rounded"><input type="text" id="returnTime" placeholder="وقت الإرجاع" class="w-full border p-2 rounded"><input type="text" id="returnDriverName" placeholder="اسم السائق (عودة)" class="w-full border p-2 rounded"><input type="text" id="endMeter" placeholder="قراءة العداد عند الإرجاع" class="w-full border p-2 rounded"><input type="text" id="returnContinuation" placeholder="استمرار / ملاحظات" class="w-full border p-2 rounded"></div></div>
+            </div>
+
+            <!-- قسم الصور: صور المركبات المرفوعة مع إمكانية إضافة علامات Pinpoint مباشرة -->
+            <div class="border-2 border-dashed border-indigo-300 rounded-2xl p-4 bg-indigo-50/20">
+                <div class="flex flex-wrap justify-between items-center mb-3">
+                    <h3 class="text-xl font-bold text-indigo-800 flex items-center gap-2"><i class="fas fa-camera-retro"></i> صور المركبات (للتوثيق والعلامات)</h3>
+                    <div class="flex gap-2">
+                        <button id="addVehicleGroupBtn" class="bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm shadow"><i class="fas fa-plus-circle ml-1"></i> إضافة مركبة جديدة</button>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 mb-3">✔ اضغط على أي صورة لإضافة علامة توضيحية (Pinpoint) مع ملاحظة. يمكنك رفع صور إضافية لكل مركبة.</p>
+                <div id="vehiclesContainer" class="space-y-6">
+                    <!-- مجموعات المركبات تظهر هنا ديناميكياً -->
+                </div>
+            </div>
+
+            <!-- فرق الفحص وملاحظات -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label class="field-label">فرق الفحص (الإسم/التوقيع)</label><div class="flex gap-2"><input type="text" id="inspectionTeamName" placeholder="الإسم" class="w-1/2 border p-2 rounded"><input type="text" id="inspectionTeamSign" placeholder="التوقيع" class="w-1/2 border p-2 rounded"></div></div>
+                <div><label class="field-label"><i class="fas fa-wind"></i> الرمز / المكيف (AC)</label><input type="text" id="acSymbol" placeholder="حالة المكيف" class="w-full border p-2 rounded"></div>
+            </div>
+            <div><label class="field-label">ملاحظات عامة</label><textarea id="remarks" rows="2" class="w-full border rounded-xl p-3"></textarea></div>
+            <div class="flex gap-3 border-t pt-3"><input type="text" id="notesName" placeholder="الإسم (الملاحظات)" class="w-1/2 border p-2 rounded"><input type="text" id="notesSignature" placeholder="التوقيع" class="w-1/2 border p-2 rounded"></div>
+        </div>
+    </div>
+    <div class="no-print mt-4 text-xs text-gray-400 text-center">CTV-Inspection | يمكنك إضافة عدة صور لكل مركبة، الضغط على الصورة يضيف علامة (Pinpoint) مع ملاحظة مخصصة. حفظ البيانات يتضمن كل الصور والعلامات.</div>
+</div>
+
+<script>
+    (function(){
+        // ----------------------------------------------
+        // صور المركبات المطلوبة (من المرفقات: TV, Transcable, 4x4, Cable Test View) وإضافة صور افتراضية عالية الجودة
+        // سنستخدم صور SVG رمزية وهمية ولكنها تعبر عن أنواع المركبات، لضمان تجربة غنية.
+        const PRESET_VEHICLES = [
+            { name: "TV (سيارة تلفزيون)", imgUrl: "https://placehold.co/600x400/2c3e50/ffffff?text=TV+CAR" },
+            { name: "Transcable", imgUrl: "https://placehold.co/600x400/1e3a5f/ffffff?text=Transcable" },
+            { name: "4x4 فحص", imgUrl: "https://placehold.co/600x400/0f172a/ffffff?text=4x4+Inspection" },
+            { name: "Cable Test View", imgUrl: "https://placehold.co/600x400/334155/ffffff?text=Cable+Test+View" }
+        ];
+        
+        // هيكل تخزين كل مجموعة: { container, fabricCanvas, pinsArray, updateUI, drawPins, canvasId, backgroundImgData }
+        let vehicleGroups = [];
+        let nextGroupId = 0;
+        
+        // دوال مساعدة
+        function showToast(msg, color="blue"){
+            let container = document.getElementById('toastContainer');
+            if(!container){ container = document.createElement('div'); container.id='toastContainer'; container.className='fixed bottom-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 no-print'; document.body.appendChild(container); }
+            const toast = document.createElement('div');
+            const bg = color==='green'?'bg-emerald-600':color==='red'?'bg-red-600':color==='orange'?'bg-orange-500':color==='purple'?'bg-purple-600':'bg-blue-600';
+            toast.className = `${bg} text-white px-5 py-2 rounded-full shadow-lg text-sm font-bold`;
+            toast.innerText = msg;
+            container.appendChild(toast);
+            setTimeout(()=>{ toast.style.opacity='0'; setTimeout(()=>toast.remove(),300); },2500);
+        }
+        
+        // إنشاء مجموعة مركبة جديدة مع قماش فبريك
+        function createVehicleGroup(presetImgUrl = null, presetTitle = "مركبة جديدة") {
+            const containerDiv = document.getElementById('vehiclesContainer');
+            const groupId = nextGroupId++;
+            const groupCard = document.createElement('div');
+            groupCard.className = 'vehicle-group-card bg-white rounded-xl shadow-md border border-gray-200 p-3 mb-5';
+            groupCard.setAttribute('data-group-id', groupId);
+            groupCard.innerHTML = `
+                <div class="flex justify-between items-center flex-wrap mb-2">
+                    <div class="flex gap-2 items-center">
+                        <input type="text" class="vehicle-title-input border border-gray-300 rounded-lg px-2 py-1 text-sm font-bold w-48" value="${presetTitle}" placeholder="اسم المركبة / اللوحة">
+                        <button class="uploadImageBtn bg-blue-600 text-white text-xs px-3 py-1 rounded-lg"><i class="fas fa-upload ml-1"></i> رفع صورة</button>
+                        <button class="presetBtn bg-purple-600 text-white text-xs px-3 py-1 rounded-lg"><i class="fas fa-images ml-1"></i> استبدال بصورة جاهزة</button>
+                    </div>
+                    <button class="deleteGroupBtn bg-red-500 text-white text-xs px-3 py-1 rounded-lg"><i class="fas fa-trash ml-1"></i> حذف المركبة</button>
+                </div>
+                <div class="canvas-wrapper relative" style="min-height: 320px;">
+                    <canvas class="fabric-canvas-annot" width="650" height="400" style="max-width:100%; height:auto; border:1px solid #ccc; background:#f3f4f6; border-radius:12px;"></canvas>
+                    <div class="image-toolbar mt-2 flex gap-2 flex-wrap">
+                        <button class="clearPinsBtn bg-gray-300 text-xs px-3 py-1 rounded">🧹 مسح كل العلامات</button>
+                        <button class="saveCanvasBtn bg-green-600 text-white text-xs px-3 py-1 rounded"><i class="fas fa-save"></i> حفظ العلامات</button>
+                    </div>
+                </div>
+                <div class="pin-notes-panel mt-3 bg-amber-50 p-2 rounded-md text-sm">
+                    <div class="font-bold text-amber-800 flex items-center gap-1"><i class="fas fa-map-pin"></i> قائمة العلامات التوضيحية (نقرة على الصورة لإضافة علامة)</div>
+                    <ul class="pin-list-ul list-disc pr-5 space-y-1 max-h-32 overflow-y-auto"></ul>
+                </div>
+            `;
+            containerDiv.appendChild(groupCard);
+            
+            const canvasElem = groupCard.querySelector('.fabric-canvas-annot');
+            const fabricCanvas = new fabric.Canvas(canvasElem);
+            fabricCanvas.selection = false;
+            let pinsArray = []; // { left, top, note }
+            const pinListUl = groupCard.querySelector('.pin-list-ul');
+            
+            // تحديث واجهة قائمة العلامات
+            function updatePinListUI() {
+                pinListUl.innerHTML = '';
+                pinsArray.forEach((pin, idx) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center border-b py-1 text-xs';
+                    li.innerHTML = `<span><i class="fas fa-thumbtack text-amber-600 ml-1"></i> نقطة ${idx+1}: (${Math.round(pin.left)},${Math.round(pin.top)}) - ملاحظة: ${pin.note || "بدون ملاحظة"}</span>
+                                    <div><button class="editPinNoteBtn text-blue-500 ml-2" data-idx="${idx}"><i class="fas fa-edit"></i></button>
+                                    <button class="removePinBtn text-red-500" data-idx="${idx}"><i class="fas fa-trash"></i></button></div>`;
+                    pinListUl.appendChild(li);
+                });
+                // ربط الأزرار الجديدة
+                groupCard.querySelectorAll('.editPinNoteBtn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const idx = parseInt(btn.getAttribute('data-idx'));
+                        const newNote = prompt("تعديل ملاحظة العلامة:", pinsArray[idx].note);
+                        if(newNote !== null) { pinsArray[idx].note = newNote; updatePinListUI(); drawAllPinsOnCanvas(); autoSaveFullState(); showToast("تم تحديث الملاحظة"); }
+                    });
+                });
+                groupCard.querySelectorAll('.removePinBtn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const idx = parseInt(btn.getAttribute('data-idx'));
+                        // إزالة الكائنات من القماش التي تمثل هذه العلامة (عن طريق البحث)
+                        const objects = fabricCanvas.getObjects().filter(obj => obj.pinMarkerId === idx);
+                        objects.forEach(obj => fabricCanvas.remove(obj));
+                        pinsArray.splice(idx, 1);
+                        // إعادة فهرسة العلامات المتبقية على canvas
+                        fabricCanvas.getObjects().forEach(obj => { if(obj.pinMarkerId !== undefined && obj.pinMarkerId > idx) obj.pinMarkerId -= 1; });
+                        drawAllPinsOnCanvas();
+                        updatePinListUI();
+                        autoSaveFullState();
+                        showToast("تم حذف العلامة");
+                    });
+                });
+            }
+            
+            function drawAllPinsOnCanvas() {
+                const existing = fabricCanvas.getObjects().filter(obj => obj.pinMarkerId !== undefined);
+                existing.forEach(obj => fabricCanvas.remove(obj));
+                pinsArray.forEach((pin, idx) => {
+                    const pinCircle = new fabric.Circle({ radius: 8, fill: '#f97316', stroke: 'white', strokeWidth: 2, left: pin.left, top: pin.top, originX: 'center', originY: 'center', selectable: true, hasControls: false, pinMarkerId: idx });
+                    const pinText = new fabric.Text('📍', { left: pin.left-8, top: pin.top-10, fontSize: 18, selectable: false, pinMarkerId: idx });
+                    const group = new fabric.Group([pinCircle, pinText], { left: pin.left, top: pin.top, originX: 'center', originY: 'center', pinMarkerId: idx });
+                    fabricCanvas.add(group);
+                });
+                fabricCanvas.renderAll();
+            }
+            
+            // إضافة علامة بالضغط على القماش
+            fabricCanvas.on('mouse:down', (opt) => {
+                if(!opt.target) {
+                    const pointer = fabricCanvas.getPointer(opt.e);
+                    const note = prompt("📝 أدخل ملاحظة الفحص على هذه النقطة (مثال: تلف كيبل، خدش، إطار منخفض):", "ملاحظة تفتيش");
+                    if(note !== null && note.trim() !== "") {
+                        pinsArray.push({ left: pointer.x, top: pointer.y, note: note });
+                        drawAllPinsOnCanvas();
+                        updatePinListUI();
+                        autoSaveFullState();
+                        showToast("✓ تمت إضافة علامة توضيحية", "green");
+                    }
+                }
+            });
+            
+            // رفع صورة مخصصة
+            const uploadBtn = groupCard.querySelector('.uploadImageBtn');
+            uploadBtn.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        fabric.Image.fromURL(ev.target.result, (img) => {
+                            const scaleX = fabricCanvas.width / img.width;
+                            const scaleY = fabricCanvas.height / img.height;
+                            const scale = Math.min(scaleX, scaleY);
+                            img.scale(scale);
+                            img.set({ left: (fabricCanvas.width - img.width*scale)/2, top: (fabricCanvas.height - img.height*scale)/2 });
+                            fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas));
+                            fabricCanvas.backgroundImage = img;
+                            fabricCanvas.renderAll();
+                            autoSaveFullState();
+                            showToast("تم رفع صورة جديدة للخلفية");
+                        }, { crossOrigin: 'anonymous' });
+                    };
+                    reader.readAsDataURL(file);
+                };
+                input.click();
+            });
+            
+            // استبدال بصورة جاهزة (من preset)
+            const presetBtn = groupCard.querySelector('.presetBtn');
+            presetBtn.addEventListener('click', () => {
+                // عرض خيارات الصور الجاهزة (TV, Transcable, 4x4, Cable Test)
+                let selectionHtml = "<div class='grid grid-cols-2 gap-2 p-2'>";
+                PRESET_VEHICLES.forEach(v => {
+                    selectionHtml += `<div class='preset-option border p-2 m-1 rounded cursor-pointer hover:bg-amber-100' data-url="${v.imgUrl}" data-name="${v.name}"><img src="${v.imgUrl}" class="h-16 w-full object-cover rounded"><p class="text-center text-xs">${v.name}</p></div>`;
+                });
+                selectionHtml += "</div>";
+                const modalDiv = document.createElement('div');
+                modalDiv.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 no-print';
+                modalDiv.innerHTML = `<div class="bg-white rounded-xl p-4 max-w-md w-full mx-2"><h4 class="font-bold mb-2">اختر صورة مركبة جاهزة</h4>${selectionHtml}<button id="closePresetModal" class="mt-3 bg-gray-500 text-white px-4 py-1 rounded">إغلاق</button></div>`;
+                document.body.appendChild(modalDiv);
+                document.querySelectorAll('.preset-option').forEach(opt => {
+                    opt.addEventListener('click', () => {
+                        const imgUrl = opt.getAttribute('data-url');
+                        fabric.Image.fromURL(imgUrl, (img) => {
+                            const scaleX = fabricCanvas.width / img.width;
+                            const scaleY = fabricCanvas.height / img.height;
+                            const scale = Math.min(scaleX, scaleY);
+                            img.scale(scale);
+                            img.set({ left: (fabricCanvas.width - img.width*scale)/2, top: (fabricCanvas.height - img.height*scale)/2 });
+                            fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas));
+                            fabricCanvas.renderAll();
+                            autoSaveFullState();
+                            showToast(`تم تعيين خلفية: ${opt.getAttribute('data-name') || "مركبة"}`);
+                        }, { crossOrigin: 'anonymous' });
+                        modalDiv.remove();
+                    });
+                });
+                document.getElementById('closePresetModal')?.addEventListener('click',()=>modalDiv.remove());
+            });
+            
+            // مسح العلامات
+            groupCard.querySelector('.clearPinsBtn').addEventListener('click', () => {
+                if(confirm("مسح جميع العلامات من هذه الصورة؟")) {
+                    pinsArray = [];
+                    drawAllPinsOnCanvas();
+                    updatePinListUI();
+                    autoSaveFullState();
+                    showToast("تم مسح العلامات");
+                }
+            });
+            groupCard.querySelector('.saveCanvasBtn').addEventListener('click', () => { autoSaveFullState(); showToast("تم حفظ العلامات والخلفية"); });
+            
+            // حذف المجموعة
+            groupCard.querySelector('.deleteGroupBtn').addEventListener('click', () => {
+                if(confirm("حذف هذه المركبة وكل علاماتها؟")) {
+                    fabricCanvas.dispose();
+                    groupCard.remove();
+                    const idx = vehicleGroups.findIndex(g => g.container === groupCard);
+                    if(idx !== -1) vehicleGroups.splice(idx,1);
+                    autoSaveFullState();
+                    showToast("تم حذف المجموعة");
+                }
+            });
+            
+            const groupObj = { container: groupCard, fabricCanvas, pinsArray, updatePinListUI, drawAllPinsOnCanvas, titleInput: groupCard.querySelector('.vehicle-title-input') };
+            vehicleGroups.push(groupObj);
+            
+            // إذا كان هناك صورة افتراضية تم تمريرها
+            if(presetImgUrl) {
+                fabric.Image.fromURL(presetImgUrl, (img) => {
+                    const scaleX = fabricCanvas.width / img.width;
+                    const scaleY = fabricCanvas.height / img.height;
+                    const scale = Math.min(scaleX, scaleY);
+                    img.scale(scale);
+                    img.set({ left: (fabricCanvas.width - img.width*scale)/2, top: (fabricCanvas.height - img.height*scale)/2 });
+                    fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas));
+                    fabricCanvas.renderAll();
+                    autoSaveFullState();
+                }, { crossOrigin: 'anonymous' });
+            }
+            updatePinListUI();
+            return groupObj;
+        }
+        
+        // حفظ الحالة الكاملة (النموذج + كل مجموعات الصور والعلامات)
+        function autoSaveFullState() {
+            const formData = {
+                carSequence: document.getElementById('carSequence').value,
+                plateNumber: document.getElementById('plateNumber').value,
+                dateValue: document.getElementById('dateValue').value,
+                department: document.getElementById('department').value,
+                deptPhone: document.getElementById('deptPhone').value,
+                inspector: document.getElementById('inspector').value,
+                destination: document.getElementById('destination').value,
+                exitTime: document.getElementById('exitTime').value,
+                driverName: document.getElementById('driverName').value,
+                driverCivilId: document.getElementById('driverCivilId').value,
+                startMeter: document.getElementById('startMeter').value,
+                receiverName: document.getElementById('receiverName').value,
+                returnTime: document.getElementById('returnTime').value,
+                returnDriverName: document.getElementById('returnDriverName').value,
+                endMeter: document.getElementById('endMeter').value,
+                returnContinuation: document.getElementById('returnContinuation').value,
+                inspectionTeamName: document.getElementById('inspectionTeamName').value,
+                inspectionTeamSign: document.getElementById('inspectionTeamSign').value,
+                acSymbol: document.getElementById('acSymbol').value,
+                remarks: document.getElementById('remarks').value,
+                notesName: document.getElementById('notesName').value,
+                notesSignature: document.getElementById('notesSignature').value,
+                vehicleGroupsData: []
+            };
+            for(let grp of vehicleGroups) {
+                let bgImageData = null;
+                if(grp.fabricCanvas.backgroundImage) {
+                    try { bgImageData = grp.fabricCanvas.backgroundImage.toDataURL(); } catch(e) { bgImageData = null; }
+                }
+                const pins = grp.pinsArray.map(p => ({ left: p.left, top: p.top, note: p.note }));
+                const title = grp.titleInput ? grp.titleInput.value : "مركبة";
+                formData.vehicleGroupsData.push({ bgImage: bgImageData, pins: pins, title: title });
+            }
+            localStorage.setItem('CTV_Inspection_FullData', JSON.stringify(formData));
+        }
+        
+        function restoreFullState() {
+            const saved = localStorage.getItem('CTV_Inspection_FullData');
+            if(!saved) return;
+            try {
+                const data = JSON.parse(saved);
+                document.getElementById('carSequence').value = data.carSequence || '';
+                document.getElementById('plateNumber').value = data.plateNumber || '';
+                document.getElementById('dateValue').value = data.dateValue || new Date().toLocaleDateString('en-CA');
+                document.getElementById('department').value = data.department || '';
+                document.getElementById('deptPhone').value = data.deptPhone || '';
+                document.getElementById('inspector').value = data.inspector || '';
+                document.getElementById('destination').value = data.destination || '';
+                document.getElementById('exitTime').value = data.exitTime || '';
+                document.getElementById('driverName').value = data.driverName || '';
+                document.getElementById('driverCivilId').value = data.driverCivilId || '';
+                document.getElementById('startMeter').value = data.startMeter || '';
+                document.getElementById('receiverName').value = data.receiverName || '';
+                document.getElementById('returnTime').value = data.returnTime || '';
+                document.getElementById('returnDriverName').value = data.returnDriverName || '';
+                document.getElementById('endMeter').value = data.endMeter || '';
+                document.getElementById('returnContinuation').value = data.returnContinuation || '';
+                document.getElementById('inspectionTeamName').value = data.inspectionTeamName || '';
+                document.getElementById('inspectionTeamSign').value = data.inspectionTeamSign || '';
+                document.getElementById('acSymbol').value = data.acSymbol || '';
+                document.getElementById('remarks').value = data.remarks || '';
+                document.getElementById('notesName').value = data.notesName || '';
+                document.getElementById('notesSignature').value = data.notesSignature || '';
+                // استعادة مجموعات المركبات
+                if(data.vehicleGroupsData && data.vehicleGroupsData.length) {
+                    while(vehicleGroups.length) { let g = vehicleGroups.pop(); if(g.container) g.container.remove(); }
+                    document.getElementById('vehiclesContainer').innerHTML = '';
+                    vehicleGroups = [];
+                    for(let vdata of data.vehicleGroupsData) {
+                        const newGrp = createVehicleGroup(null, vdata.title || "مركبة");
+                        if(vdata.bgImage) {
+                            fabric.Image.fromURL(vdata.bgImage, (img) => {
+                                newGrp.fabricCanvas.setBackgroundImage(img, newGrp.fabricCanvas.renderAll.bind(newGrp.fabricCanvas));
+                                newGrp.fabricCanvas.renderAll();
+                            });
+                        }
+                        newGrp.pinsArray = vdata.pins.map(p => ({ left: p.left, top: p.top, note: p.note }));
+                        newGrp.drawAllPinsOnCanvas();
+                        newGrp.updatePinListUI();
+                    }
+                }
+            } catch(e) { console.warn(e); }
+        }
+        
+        // مشاركة الرابط المشفر
+        function shareFullReport() {
+            autoSaveFullState();
+            const fullState = localStorage.getItem('CTV_Inspection_FullData');
+            if(!fullState) { showToast("لا توجد بيانات","orange"); return; }
+            let encoded = btoa(unescape(encodeURIComponent(fullState)));
+            const url = new URL(window.location.href);
+            url.searchParams.set('ctv_shared', encoded);
+            navigator.clipboard.writeText(url.toString());
+            showToast("تم نسخ رابط تقرير CTV-Inspection (يتضمن الصور والعلامات)","purple");
+        }
+        
+        function loadSharedFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            const shared = params.get('ctv_shared');
+            if(shared) {
+                try {
+                    const decoded = decodeURIComponent(escape(atob(shared)));
+                    localStorage.setItem('CTV_Inspection_FullData', decoded);
+                    restoreFullState();
+                    showToast("تم تحميل تقرير مشترك: كل الصور والعلامات جاهزة","green");
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch(e) { showToast("رابط تالف","red"); restoreFullState(); }
+            } else { restoreFullState(); }
+        }
+        
+        // إضافة مجموعة أولية بصورة افتراضية TV
+        function initDefaultVehicles() {
+            // نضيف أربع مركبات أساسية من الصور المطلوبة TV, Transcable, 4x4, Cable Test View
+            const presets = [...PRESET_VEHICLES];
+            for(let p of presets) {
+                createVehicleGroup(p.imgUrl, p.name);
+            }
+        }
+        
+        // أزرار التحكم
+        document.getElementById('saveLocalBtn').addEventListener('click', ()=>{ autoSaveFullState(); showToast("تم حفظ كل البيانات والعلامات بنجاح","green"); });
+        document.getElementById('shareBtn').addEventListener('click', shareFullReport);
+        document.getElementById('printBtn').addEventListener('click', ()=> window.print());
+        document.getElementById('resetBtn').addEventListener('click', ()=>{ if(confirm("إعادة تعيين كل شيء؟ ستخسر البيانات غير المحفوظة.")){ localStorage.removeItem('CTV_Inspection_FullData'); location.reload(); } });
+        document.getElementById('addVehicleGroupBtn').addEventListener('click', ()=> createVehicleGroup(null, "مركبة جديدة"));
+        
+        // بدء التشغيل
+        if(document.querySelectorAll('.vehicle-group-card').length === 0) initDefaultVehicles();
+        loadSharedFromURL();
+        setInterval(autoSaveFullState, 5000);
+    })();
+</script>
+</body>
+</html>
